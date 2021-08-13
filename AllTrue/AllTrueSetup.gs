@@ -5,14 +5,18 @@ Toggle.okay=false
 Toggle.passes=false
 Toggle.secret=false
 Toggle.earlyRun=false
+Toggle.lock=true
+Toggle.rshellpass=false
 Objects={}
 Objects["Shells"]=[]
 Objects["Computers"]=[]
 Objects["Files"]=[]
 Objects["Numbers"]=[]
 Objects["Null"]=[]
-Ip={}
+DESC={}
+DESC.userType=false
 
+Ip={}
 Ip.LAN=false
 Ip.LANconfirm=[]
 thePorts=[]
@@ -222,6 +226,7 @@ end function
 
 
 execute=function(net, p=false, x=false)
+
 	Lib=net.dump_lib
 	print(red+IP[-1]+Color(orange)+": ")
 	if p == false then lanIP = "router" else lanIP = p.get_lan_ip
@@ -232,12 +237,14 @@ execute=function(net, p=false, x=false)
 
 	for i in Objects["Rshells"]
 		if not typeof(i) == "shell" then continue
+		if Toggle.rshellpass==true then continue
 		if i.host_computer.public_ip == IP[-1] then
 			Objects["Shells"].push([typeof(i), i, lanIP, getUser(i)])
 			Objects["Computers"].push([typeof(i.host_computer), i.host_computer, lanIP, getUser(i.host_computer)])
 			home=i.host_computer.File("/home")
 			root=i.host_computer.File("/root")
 			Objects["Files"].push([typeof(i.host_computer.File("/")), i.host_computer.File("/"), lanIP, getUser(i.host_computer.File("/"), home, root)])
+			Toggle.rshellpass=true
 			break
 		end if
 	end for
@@ -261,34 +268,54 @@ execute=function(net, p=false, x=false)
 		return
 	end if
 
-	Memories = metax.scan(Lib)
+	if x == "exploit" then
+		Memories=Global.expl.get_content.split("\n")
+	else
+		Memories = metax.scan(Lib)
+	end if
 
+	List=[1]
 	for memory in Memories
-		results = metax.scan_address(Lib, memory)
-		List = []
-		line = results.split(" ")
-		for word in line
-			new_word = word.values
-			if word != "overflow." and word != "source..." and word != "user." and word.len > 2 then
-				if new_word[-1] == "." then
-					word = word.remove(".")
-					word = word.remove("<b>")
-					word = word.remove("</b>")
-					List.push(word)
+
+		if x == "exploit" then
+			if memory.split("/").len != 5 then continue
+			if memory.split("/")[1] != Lib.lib_name then continue
+			if memory.split("/")[4] != Lib.version then continue
+
+		else
+			results = metax.scan_address(Lib, memory)
+			List = []
+			line = results.split(" ")
+			for word in line
+				new_word = word.values
+				if word != "overflow." and word != "source..." and word != "user." and word.len > 2 then
+					if new_word[-1] == "." then
+						word = word.remove(".")
+						word = word.remove("<b>")
+						word = word.remove("</b>")
+						List.push(word)
+					end if
 				end if
-			end if
-		end for
+			end for
+		end if
 
 		for payload in List
+			if x == "exploit" then l=memory.split("/")
+		 	if x == "exploit" then memory=l[2]
+			if x == "exploit" then payload=l[3]
+
 			result = Lib.overflow(memory, payload, "1234")
 
-			statement=typeof(result)+"/"+Lib.lib_name+"/"+memory+"/"+payload
-			Global.expl.set_content(Global.expl.get_content+statement+"\n")
-			check=remove_repeats(Global.expl)
+			statement=typeof(result)+"/"+Lib.lib_name+"/"+memory+"/"+payload+"/"+Lib.version
+
+			if x == false or x == "rshell" then Global.expl.set_content(Global.expl.get_content+statement+"\n")
+			if x == false or x == "rshell" then check=remove_repeats(Global.expl)
+
 
 			if typeof(result) == "null" then Objects["Null"].push([typeof(result), Lib.lib_name, memory, payload])
 			if typeof(result) == "number" then Objects["Numbers"].push([typeof(result), result, lanIP])
 			if typeof(result) == "file" then
+
 				res=result
 				root= res
 				home= res
@@ -320,6 +347,26 @@ execute=function(net, p=false, x=false)
 					end if
 				end for
 				Objects["Files"].push([typeof(main), main, lanIP, getUser(main, home, root)])//check files
+
+				check=false
+				pos=0
+				chatEXE=fileNav(main, "/usr/bin/Chat.exe")
+				manualEXE=fileNav(main, "/usr/bin/Manual.exe")
+				mapEXE=fileNav(main, "/usr/bin/Map.exe")
+				ScanlanEXE=fileNav(main, "/usr/bin/ScanLan.exe")
+				metaxSO=fileNav(main, "/lib/metaxploit.so")
+				nmapBIN=fileNav(main, "/bin/nmap")
+
+				f=[chatEXE, manualEXE, mapEXE, ScanlanEXE, metaxSO, nmapBIN]
+
+				for i in f
+					if not i then checker=false else checker=true
+					if checker == true then pos=pos+1
+				end for
+
+				if pos > 2 then DESC.userType="PLAYER" else DESC.userType="NPC"
+
+
 
 				if not home or home.path != "/home" then continue
 				folders=home.get_folders
@@ -372,11 +419,31 @@ execute=function(net, p=false, x=false)
 			end if
 
 			if typeof(result) == "computer" then
+
 				Objects["Computers"].push([typeof(result), result, lanIP, getUser(result)])//check computers
 				home = result.File("/home")
 				root = result.File("/root")
 				file = result.File("/")
+				main=result
 				//change root passwd to 12345
+				check=false
+				pos=0
+				chatEXE=main.File("/usr/bin/Chat.exe")
+				manualEXE=main.File("/usr/bin/Manual.exe")
+				mapEXE=main.File("/usr/bin/Map.exe")
+				ScanlanEXE=main.File("/usr/bin/ScanLan.exe")
+				metaxSO=main.File("/lib/metaxploit.so")
+				nmapBIN=main.File("/bin/nmap")
+
+				f=[chatEXE, manualEXE, mapEXE, ScanlanEXE, metaxSO, nmapBIN]
+
+				for i in f
+					if not i then checker=false else checker=true
+					if checker == true then pos=pos+1
+				end for
+
+				if pos > 2 then DESC.userType="PLAYER" else DESC.userType="NPC"
+
 				if getUser(result) == "root" then result.change_password(getUser(result), "12345")
 				Objects["Files"].push([typeof(file), file, lanIP, getUser(file, home, root)])//check files
 				if not home then continue
@@ -428,10 +495,12 @@ execute=function(net, p=false, x=false)
 			end if
 
 			if typeof(result) == "shell" then
+
 				Objects["Shells"].push([typeof(result), result, lanIP, getUser(result)])//check shells
 				result2=result.host_computer
 				home = result2.File("/home")
 				root = result2.File("/root")
+				main=result2
 
 				//change root passwd to 12345
 				if getUser(result) == "root" then result2.change_password(getUser(result), "12345")
@@ -441,6 +510,25 @@ execute=function(net, p=false, x=false)
 				file = result2.File("/")
 				Objects["Files"].push([typeof(file), file, lanIP, getUser(file, home, root)])//check files
 				Objects["Computers"].push([typeof(result.host_computer), result.host_computer, lanIP, getUser(result.host_computer)])//check computers
+
+				check=false
+				pos=0
+				chatEXE=main.File("/usr/bin/Chat.exe")
+				manualEXE=main.File("/usr/bin/Manual.exe")
+				mapEXE=main.File("/usr/bin/Map.exe")
+				ScanlanEXE=main.File("/usr/bin/ScanLan.exe")
+				metaxSO=main.File("/lib/metaxploit.so")
+				nmapBIN=main.File("/bin/nmap")
+
+				f=[chatEXE, manualEXE, mapEXE, ScanlanEXE, metaxSO, nmapBIN]
+
+				for i in f
+					if not i then checker=false else checker=true
+					if checker == true then pos=pos+1
+				end for
+
+				if pos > 2 then DESC.userType="PLAYER" else DESC.userType="NPC"
+
 				if not home then continue
 				folders=home.get_folders
 				for user in folders
@@ -490,6 +578,7 @@ execute=function(net, p=false, x=false)
 			end if
 		end for
 	end for
+	if DESC.userType==false then DESC.userType=Color(error)+"unknown"+End("color")
 	//LogOverwrite()
 	wait(1)
 	clear_screen
@@ -519,14 +608,14 @@ objectParser=function(list, lan=false)
 		for i in list
 			if i.indexOf("root") == null then continue
 			object=i[1]
-			//print(i[3])
+			print(i)
 			return object
 		end for
 	else
 		for i in list
 			if i.indexOf("root") == null and i.indexOf(lan) == null then continue
 			object=i[1]
-			//print(i[3])
+			print(i)
 			return object
 		end for
 	end if
@@ -537,7 +626,7 @@ objectParser=function(list, lan=false)
 			if i.indexOf("guest") != null then continue
 			if i.indexOf("unknown") != null then continue
 			object=i[1]
-			//print(i[3])
+			print(i)
 			return object
 		end for
 	else
@@ -546,7 +635,7 @@ objectParser=function(list, lan=false)
 			if i.indexOf("guest") == null and i.indexOf(lan) == null then continue
 			if i.indexOf("unknown") == null and i.indexOf(lan) == null then continue
 			object=i[1]
-			//print(i[3])
+			print(i)
 			return object
 		end for
 	end if
@@ -555,13 +644,14 @@ objectParser=function(list, lan=false)
 		for i in list
 			if i.indexOf("guest") == null and i.indexOf("unknown") == null then continue
 			object=i[1]
+			print(i)
 			return object
 		end for
 	else
 		for i in list
 			if (i.indexOf("guest") == null and i.indexOf("unknown") == null) and i.indexOf(lan) == null then continue
 			object=i[1]
-			//print(i[3])
+			print(i)
 			return object
 		end for
 	end if
