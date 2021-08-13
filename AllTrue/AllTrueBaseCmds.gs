@@ -1,16 +1,14 @@
 BaseCmds=function(cmd)
 	shell=false
 	check=false
-	lan=Ip.LAN
+
 	if cmd.len >= 2 then params=cmd[1:].join(" ") else params=false
-	if Toggle.live==true and (cmd[0] == "sudo" or cmd[0] == "ssh") then return false//just copy paste and run. I modified this lin e
 	if Toggle.live == true then
 		if Objects["Shells"] == [] then
 			print(Color(error)+"no shell objects stored...")
 			return
 		end if
-
-		shell=objectParser(Objects["Shells"], lan)
+		shell=objectParser(Objects["Shells"], Ip.LAN)
 	end if
 
 
@@ -23,6 +21,7 @@ BaseCmds=function(cmd)
 		shell.launch("/bin/"+cmd[0], "/")
 		return
 	end if
+
 	if params!=false then shell.launch("/bin/"+cmd[0], params) else shell.launch("/bin/"+cmd[0])
 	return
 end function
@@ -33,11 +32,16 @@ command["clear"]=function(cmd)
 end function
 
 command["wipe"]=function(cmd)
-	print(Alert("RECON WIPED")+Align("center")+Color(error)+"Press [ENTER] to Continue...")
-	a = user_input(char(0))
+	params=false
+	if cmd.len > 1 then params = cmd[1:]
+	if params == false then
+		print(Alert("RECON WIPED")+Align("center")+Color(error)+"Press [ENTER] to Continue...")
+		a = user_input(char(0))
+		if a == "back" or a == "Back" or a == "b" or a == "B" then return
+	end if
 	if Toggle.live == true then LogOverwrite()
-	if a == "back" or a == "Back" or a == "b" or a == "B" then return
-	get_shell.launch(program_path)
+
+	if params==false then get_shell.launch(program_path) else get_shell.launch(program_path, params.join(" "))
 end function
 command["-w"]=command["wipe"]
 
@@ -69,7 +73,7 @@ command["file"]=function(cmd)
 	if @self.init() == false then return
 
 	second = cmd[0].split(".")[1]
-	lan=Ip.LAN
+
 
 	self["read"]=function()
 		alt=false
@@ -94,7 +98,7 @@ command["file"]=function(cmd)
 			print(Color(error)+" no file objects stored")
 			return
 		end if
-		comp=fileNav(objectParser(Objects["Files"]), cmd[1])
+		comp=fileNav(objectParser(Objects["Files"], Ip.LAN), cmd[1])
 
 		fileFunc = function()
 			return comp
@@ -143,9 +147,9 @@ command["file"]=function(cmd)
 		target=cmd[1]
 		print("")
 
-		shell=objectParser(Objects["Shells"])
+		shell=objectParser(Objects["Shells"], Ip.LAN)
 		//shell=Objects["Shells"][0][1]
-		file=fileNav(objectParser(Objects["Files"]), target)
+		file=fileNav(objectParser(Objects["Files"], Ip.LAN), target)
 		print(typeof(file))
 		if not file then
 			print(Color(error)+" ("+Color(white)+target+End("color")+"): file not found...")
@@ -184,8 +188,8 @@ command["file"]=function(cmd)
 		remote=cmd[2]
 		print("")
 
-		shell=objectParser(Objects["Shells"])
-		file=fileNav(objectParser(Objects["Files"]), remote, "dir")//adding the type dir spit's out a file with a folder's path
+		shell=objectParser(Objects["Shells"], Ip.LAN)
+		file=fileNav(objectParser(Objects["Files"], Ip.LAN), remote, "dir")//adding the type dir spit's out a file with a folder's path
 
 		if not file then
 			print(Color(error)+" ("+Color(white)+remote+End("color")+"): dir not found...")
@@ -222,8 +226,8 @@ command["file"]=function(cmd)
 
 		remote=cmd[1]
 		T={}
-		if dir == false then T.file = fileNav(objectParser(Objects["Files"]), remote)
-		if dir == "-dir" then T.file = fileNav(objectParser(Objects["Files"]), remote, "dir")
+		if dir == false then T.file = fileNav(objectParser(Objects["Files"], Ip.LAN), remote)
+		if dir == "-dir" then T.file = fileNav(objectParser(Objects["Files"], Ip.LAN), remote, "dir")
 
 		if not T.file then
 			print(Color(error)+"("+Color(white)+remote+End("color")+"): file not found")
@@ -342,7 +346,6 @@ command["target"]=function(cmd)
 	if not self.init() then return
 
 	second=cmd[0].split(".")[1]
-	lan=Ip.LAN
 
 	self["purge"]=function()
 
@@ -356,7 +359,7 @@ command["target"]=function(cmd)
 		end if
 
 		//make this command delete everything
-		file=objectParser(Objects["Files"], lan)
+		file=objectParser(Objects["Files"], Ip.LAN)
 
 		if not file.has_permission("w") then
 			print(Color(error)+" permission denied...")
@@ -395,18 +398,21 @@ command["target"]=function(cmd)
 			print(Color(error)+" USAGE: [target.lock]")
 			return
 		end if
-
+		if Toggle.lock == false then
+			print(Color(error)+" command blocked while using [run] command. [GoDark] to unblock.")
+			return
+		end if
 
 		remote=["/"]
 		delfolders=["/home", "/boot", "/bin/cd"]
 		print(Color(white)+"LOCKING: \n")
-		all=fileNav(objectParser(Objects["Files"], lan), "/", "dir")
+		all=fileNav(objectParser(Objects["Files"], Ip.LAN), "/", "dir")
 		all.chmod("u+wrx", 1)
 		all.chmod("g+wrx", 1)
 		all.chmod("o+wrx", 1)
 		//first make everything moddable so u can go back through and lock shit up
 		for name in remote
-			file=fileNav(objectParser(Objects["Files"], lan), name, "dir")
+			file=fileNav(objectParser(Objects["Files"], Ip.LAN), name, "dir")
 			if not file then
 				print(Color(error)+" ('"+Color(white)+name+End("color")+"'): file deleted...")
 				continue
@@ -428,7 +434,24 @@ command["target"]=function(cmd)
 		end for
 		print("\n"+Color(white)+"DELETING: \n")
 		for name in delfolders
-			if name == delfolders[-1] then file=fileNav(objectParser(Objects["Files"], lan), name) else file=fileNav(objectParser(Objects["Files"], lan), name, "dir")
+			if name == delfolders[-1] then file=fileNav(objectParser(Objects["Files"], Ip.LAN), name) else file=fileNav(objectParser(Objects["Files"], Ip.LAN), name, "dir")
+			if name == "/home" then
+				file.chmod("u+wrx", 1)
+				file.chmod("g+wrx", 1)
+				file.chmod("o+wrx", 1)
+				for i in file.get_folders
+					i.chmod("u-wrx", 1)
+					i.chmod("g-wrx", 1)
+					i.chmod("o-wrx", 1)
+					if i.name=="guest" then continue
+					i.delete
+				end for
+				file.chmod("u-wrx", 1)
+				file.chmod("g-wrx", 1)
+				file.chmod("o-wrx", 1)
+				continue
+			end if
+
 			if not file then
 				print(Color(error)+"delete '"+name+"': file already deleted...")
 				continue
@@ -469,10 +492,10 @@ command["target"]=function(cmd)
 			return
 		end if
 
-		comp=objectParser(Objects["Computers"], lan)
-		shell=objectParser(Objects["Shells"], lan)
+		comp=objectParser(Objects["Computers"], Ip.LAN)
+		shell=objectParser(Objects["Shells"], Ip.LAN)
 		if shell == false then
-			print(Color(error)+" no shell objects matching "+Color(white)+lan+End("color")+"...")
+			print(Color(error)+" no shell objects matching "+Color(white)+Ip.LAN+End("color")+"...")
 			return
 		end if
 		if shell == null then
@@ -480,7 +503,7 @@ command["target"]=function(cmd)
 			return
 		end if
 		if comp == false then
-			print(Color(error)+" no computer objects matching "+Color(white)+lan+End("color")+"...")
+			print(Color(error)+" no computer objects matching "+Color(white)+Ip.LAN+End("color")+"...")
 			return
 		end if
 		if comp == null then
@@ -591,12 +614,11 @@ command["target"]=function(cmd)
 			return
 		end if
 
-		lan=Ip.LAN
 		if Objects["Shells"]==[] then
 			print(Color(error)+" no shell objects stored...")
 			return
 		end if
-		shell=objectParser(Objects["Shells"], lan)
+		shell=objectParser(Objects["Shells"], Ip.LAN)
 		target=shell.host_computer.File("/home/guest")
 		if not target or (target and not target.has_permission("w")) then
 			print(Color(error)+" permission denied...")
@@ -657,8 +679,8 @@ command["target"]=function(cmd)
 end function
 
 command["run"]= function(cmd)
-	lan=Ip.LAN
 	params=false
+	Toggle.lock=false
 	if not cmd.hasIndex(1) then
 		print(Color(error)+" USAGE: [run][OPT:/local/file][OPT:/remote/file]")
 		return
@@ -675,8 +697,8 @@ command["run"]= function(cmd)
 		print(Color(error)+" no file objects stored...")
 		return
 	end if
-	if Toggle.live == true then shell=objectParser(Objects["Shells"], lan) else shell=get_shell
-	if Toggle.live == true then file=fileNav(objectParser(Objects["Files"], lan), target) else file=get_shell.host_computer.File(target)
+	if Toggle.live == true then shell=objectParser(Objects["Shells"], Ip.LAN) else shell=get_shell
+	if Toggle.live == true then file=fileNav(objectParser(Objects["Files"], Ip.LAN), target) else file=get_shell.host_computer.File(target)
 
 	if not file then
 		print(Color(error)+" '"+Color(white)+target+End("color")+"' not found...")
@@ -695,7 +717,7 @@ command["run"]= function(cmd)
 	end if
 	if params != false then shell.launch(target, params) else shell.launch(target)
 
-
+	Toggle.lock=true
 end function
 
 command["-r"]=command["run"]
@@ -713,7 +735,6 @@ command["shell"]=function(cmd)
 	if not self.init() then return
 
 	second=cmd[0].split(".")[1]
-	lan=Ip.LAN
 
 	self["start"]=function()
 		if cmd.len > 1 or cmd.len < 1 then
@@ -729,7 +750,7 @@ command["shell"]=function(cmd)
 			return
 		end if
 
-		shell=objectParser(Objects["Shells"], lan)//grabs relevant shell object
+		shell=objectParser(Objects["Shells"], Ip.LAN)//grabs relevant shell object
 		if shell then
 			print(Alert("TERMINAL PROCESS CONFIRMED")+Color(orange)+Align("center")+"connecting to "+Color(red)+IP[-1].replace(".", Color(blue)+"."+End("color"))+End("color")+"...")
 			shell.start_terminal
@@ -759,7 +780,6 @@ command["comp"]=function(cmd)
 	if not self.init() then return
 
 	second=cmd[0].split(".")[1]
-	lan=Ip.LAN
 
 	self["touch"]=function()
 		if cmd.len < 2 or cmd.len > 3 then
@@ -778,7 +798,7 @@ command["comp"]=function(cmd)
 		if cmd.hasIndex(2) then dir = cmd[2]
 
 		remote=cmd[1]
-		comp=objectParser(Objects["Computers"], lan)
+		comp=objectParser(Objects["Computers"], Ip.LAN)
 
 		if remote.split("/")[:-1].join("/") == "" then b="/" else b=remote.split("/")[:-1].join("/")
 		parent=comp.File(b)
@@ -833,8 +853,6 @@ command["rshells"]=function(cmd)
 	for shell in Objects["Rshells"]
 		if not shell then continue
 		//if not index then continue
-		print(shell)
-		print(typeof(shell.host_computer))
 		home=shell.host_computer.File("/home")
 		root=shell.host_computer.File("/root")
 		l.push([[Color(orange)+b+"Shell ("+Color(red)+index+End("color")+")"], [Color(blue)+"User: "+Color(orange)+getUser(shell, home, root), Color(blue)+"Public IP: "+Color(orange)+shell.host_computer.public_ip, Color(blue)+"Local IP: "+Color(orange)+shell.host_computer.local_ip]])
@@ -861,15 +879,16 @@ command["rshells"]=function(cmd)
 end function
 
 command["show"]=function(cmd)
-  print(Color(error)+" coming soon...")
-  return
-	print(Ip.LANconfirm)
+	print(Color(error)+" coming soon...")
+	return
 	print(Ip.LAN)
+	a=get_router(IP[-1]).computers_lan_ip
+	print(a)
 end function
 
 command["sweep"]=function(cmd)
-  print(Color(error)+" coming soon...")
-  return
+	print(Color(error)+" coming soon...")
+	return
 	if cmd.len < 2 or cmd.len > 2 or (cmd[1][0] != "-" and cmd[1][0] != "+" and cmd[1][0] != "0") then
 		print(Color(error)+" USAGE: [sweep][OPT: -PORT|+PORT|0]")
 		return
